@@ -178,7 +178,7 @@ vec3 clacLandTerrain(float elevation,vec3 pos){
     return vec3(207, 240, 168)/255;
   }else if(elevation<0.9){
     //greens
-    return vec3(50, 230, 98)/255*(0.8+cnoise2(pos*15,3)*0.2);
+    return vec3(50, 230, 98)/255*(0.8+cnoise2(pos*15,9)*0.2);
   }else{
     return vec3(247, 252, 255)/255;
   }
@@ -188,8 +188,8 @@ return vec3(p,sqrt(r*r-p.x*p.x-p.y*p.y));
 }
 vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
   vec3 pos=transform2dTo3d(clip,planetScreenSpace);
-  pos=rotateY(pos,time);
   vec3 normal=normalize(pos);
+  pos=rotateY(pos,time);
   if(length(clip)>planetScreenSpace){
     
     vec3 o=vec3(2, 5, 28)/255;
@@ -246,11 +246,11 @@ void main()
 //cloud
   vec3 cloudPos=transform2dTo3d(clip,planetScreenSpace+atmostSphereThickness*0.5);
 
-  float cloudVar=cnoise2(cloudPos*10+time*vec3(0.042,0.63,0.348)/5,8);
-  vec4 cloudTex=vec4(vec3(float(cloudVar>0.2)),0.2);
+  float cloudVar=cnoise2(cloudPos*10+time*vec3(0.042,0.63,0.348)/5,18);
+  vec4 cloudTex=vec4(vec3(max(0,cloudVar)),0.2);
 
 
 
-  FragColor=planetTex+(vec4(atmostsphereTex,1)+cloudTex*0.8)*shadow;
+  FragColor=planetTex+(vec4(atmostsphereTex,1)+cloudTex*0.9)*shadow;
 
 }
