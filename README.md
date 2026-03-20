@@ -1,7 +1,3 @@
-# waveFormSim
-
+# shader boilder plate code
 ---
-
-todo:
-
-- custom antena signature
+> this is a c++ base fullscreen shader vewire with hot reloading
