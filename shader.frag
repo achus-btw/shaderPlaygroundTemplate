@@ -127,25 +127,120 @@ float cnoise2(vec3 p,int n){
   }
   return k;
 }
-vec3 calculate(){
-  float planetScreenSpace=0.5;
-  vec2 clip = (gl_FragCoord.xy / vec2(800)) * 2.0 - 1.0;
+vec3 hash3( vec2 p ){
+    vec3 q = vec3( dot(p,vec2(127.1,311.7)), 
+				   dot(p,vec2(279.5,183.3)), 
+				   dot(p,vec2(419.2,371.9)) );
+	return fract(sin(q)*43758.5453);
+}
+
+float iqnoise( in vec2 x, float u, float v ){
+    vec2 p = floor(x);
+    vec2 f = fract(x);
+		
+	float k = 1.0+63.0*pow(1.0-v,4.0);
+	
+	float va = 0.0;
+	float wt = 0.0;
+    for( int j=-2; j<=2; j++ )
+    for( int i=-2; i<=2; i++ )
+    {
+        vec2 g = vec2( float(i),float(j) );
+		vec3 o = hash3( p + g )*vec3(u,u,1.0);
+		vec2 r = g - f + o.xy;
+		float d = dot(r,r);
+		float ww = pow( 1.0-smoothstep(0.0,1.414,sqrt(d)), k );
+		va += o.z*ww;
+		wt += ww;
+    }
+	
+    return va/wt;
+}
+float stars(vec2 uv, float density) {
+    vec2 cell = floor(uv * density);
+    vec2 local = fract(uv * density);
+    vec2 starPos = vec2(rand(cell), rand(cell + 7.3));
+    float d = length(local - starPos);
+    return smoothstep(0.05, 0.0, d) * rand(cell + 13.1);
+}
+vec3 clacLandTerrain(float elevation,vec3 pos){
+  if(elevation<0.2){
+    //beach
+    return vec3(207, 240, 168)/255;
+  }else if(elevation<0.9){
+    //greens
+    return vec3(50, 230, 98)/255*(0.8+cnoise2(pos*15,3)*0.2);
+  }else{
+    return vec3(247, 252, 255)/255;
+  }
+}
+vec3 transform2dTo3d(vec2 p,float r){
+return vec3(p,sqrt(r*r-p.x*p.x-p.y*p.y));
+}
+vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
+  vec3 pos=transform2dTo3d(clip,planetScreenSpace);
+  vec3 normal=normalize(pos);
   if(length(clip)>planetScreenSpace){
-    return vec3(0,0,0);
+    
+    vec3 o=vec3(2, 5, 28)/255;
+    float s=stars(clip,100);
+    float stellarCloud=pNoise(clip*600,6);
+    o+=s*stellarCloud*6.4;//stellar stars
+    o+=stellarCloud*0.2;//stellar cloud light
+    o+=stars(clip,30)*0.5;//non cloud star
+    // o+=smoothstep(1,0,(length(clip)-planetScreenSpace)*10);  //halo around planet
+    
+    return o;
   }
-  vec3 pos=vec3(clip,sqrt(planetScreenSpace*planetScreenSpace-clip.x*clip.x-clip.y*clip.y))*float(length(clip)<planetScreenSpace);
+  float light=min(1,0.2+dot(normal,lightDir));
 
-  vec3 outCol=vec3(58, 170, 240)/255;
-  bool isLand=cnoise2(pos*5,5)>0.1;
+  vec3 outCol;//base color blue
+  float elevation=cnoise2(pos*5,7);
+  bool isLand=elevation>0.1;
   if(isLand){
-    outCol=vec3(50, 230, 98)/255;
+    outCol=clacLandTerrain(elevation,pos);
+  }else{
+    //iswater
+    // light=dot(normal,lightDir)>0.98?0.5+dot(normal,lightDir):light;
+
+    float waterNoise=cnoise2(pos*5,8);
+    outCol=vec3(58, 170, 240)/255*(0.95+0.05*waterNoise);
+    light+=max(1,dot(normal,lightDir))*0.05;
+
   }
 
-  return  vec3(outCol);
+  return  vec3(outCol)*light;
 
 }
+
 void main()
 {
   
-  FragColor =vec4(calculate(),1);
+  vec2 clip = (gl_FragCoord.xy / vec2(800)) * 2.0 - 1.0;
+  float r=length(clip);
+  float planetScreenSpace=0.5;
+  vec3 lightDir=normalize(vec3(1,-1,1));
+  vec4 planetTex =vec4(calculatePlanet(clip,planetScreenSpace,lightDir),1);
+
+  //atmostsphere
+
+  float atmostSphereThickness=0.1;
+  float atmostsphereRadius=planetScreenSpace+atmostSphereThickness;
+  vec3 atmPos=transform2dTo3d(clip,atmostsphereRadius);
+  vec3 atmNormal=normalize(atmPos);
+  float k=max(0,1-smoothstep(0,atmostSphereThickness,abs(r - planetScreenSpace)))*0.4;
+  k*=min(1,0.2+dot(atmNormal,lightDir));//shadow on atmostsphere
+  vec3 atmostsphereTex=vec3(k,k,k);
+  atmostsphereTex*=vec3(0, 213, 255)/255;//hue for atmostsphere
+
+//cloud
+  vec3 cloudPos=transform2dTo3d(clip,planetScreenSpace+atmostSphereThickness*0.5);
+
+  float cloudVar=cnoise2(cloudPos*10+50.2,8);
+  vec4 cloudTex=vec4(vec3(float(cloudVar>0.5)),0.2)*100;
+
+
+
+  FragColor=planetTex+vec4(atmostsphereTex,1)+cloudTex;
+
 }
