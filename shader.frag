@@ -2,7 +2,7 @@
 out vec4 FragColor;
 in vec2 uv;
 uniform float time;
-
+uniform vec2 u_resolution;
 const float screenWidth=800;
 const float PI =3.14157;
 float rand(vec2 c){
@@ -178,7 +178,7 @@ vec3 clacLandTerrain(float elevation,vec3 pos){
     return vec3(207, 240, 168)/255;
   }else if(elevation<0.9){
     //greens
-    return vec3(50, 230, 98)/255*(0.8+cnoise2(pos*15,9)*0.2);
+    return vec3(50, 230, 98)/255*(0.8+cnoise2(pos*15,3)*0.2);
   }else{
     return vec3(247, 252, 255)/255;
   }
@@ -194,7 +194,7 @@ vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
     
     vec3 o=vec3(2, 5, 28)/255;
     float s=stars(clip,100);
-    float stellarCloud=pNoise(clip*600,6);
+    float stellarCloud=pNoise(clip*600+2321+time,6);
     o+=s*stellarCloud*6.4;//stellar stars
     o+=stellarCloud*0.2;//stellar cloud light
     o+=stars(clip,30)*0.5;//non cloud star
@@ -226,7 +226,8 @@ vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
 void main()
 {
   
-  vec2 clip = (gl_FragCoord.xy / vec2(800)) * 2.0 - 1.0;
+  vec2 clip = 2.*((gl_FragCoord.xy / (u_resolution+1))-0.5);
+  clip*=vec2(1,u_resolution.y/u_resolution.x);
   float r=length(clip);
   float planetScreenSpace=0.5;
   vec3 lightDir=normalize(vec3(1,-1,1));
@@ -239,18 +240,23 @@ void main()
   vec3 atmPos=transform2dTo3d(clip,atmostsphereRadius);
   vec3 atmNormal=normalize(atmPos);
   float k=max(0,1-smoothstep(0,atmostSphereThickness,abs(r - planetScreenSpace)))*0.4;
-  float shadow=min(1,0.2+dot(atmNormal,lightDir));//shadow on atmostsphere
+  float shadow=max(0,min(1,0.2+dot(atmNormal,lightDir)));//shadow on atmostsphere
   vec3 atmostsphereTex=vec3(k,k,k);
   atmostsphereTex*=vec3(0, 213, 255)/255;//hue for atmostsphere
 
 //cloud
   vec3 cloudPos=transform2dTo3d(clip,planetScreenSpace+atmostSphereThickness*0.5);
 
-  float cloudVar=cnoise2(cloudPos*10+time*vec3(0.042,0.63,0.348)/5,18);
-  vec4 cloudTex=vec4(vec3(max(0,cloudVar)),0.2);
+  float cloudVar=cnoise2(cloudPos*10+time*vec3(0.042,0.63,0.348)/5,8);
+  vec4 cloudTex=vec4(vec3(smoothstep(0,0.9,cloudVar)),0.2);
 
-
-
-  FragColor=planetTex+(vec4(atmostsphereTex,1)+cloudTex*0.9)*shadow;
+  //ice caps 
+  vec3 iceCap=vec3(smoothstep(0.1,0.9,abs(clip.y)))*float(r<planetScreenSpace);
+  FragColor=planetTex+
+            (
+             vec4(atmostsphereTex,1)+
+             cloudTex*0.9+
+             vec4(iceCap,1)
+             )*shadow;
 
 }

@@ -74,7 +74,9 @@ std::string getTerminalInput() {
     std::getline(std::cin, line);
     return line;
 }
-
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
 int main() {
     if (!glfwInit()) return -1;
 
@@ -85,7 +87,7 @@ int main() {
     GLFWwindow* window = glfwCreateWindow(800, 800, "Terminal Hot-Reload", NULL, NULL);
     if (!window) { glfwTerminate(); return -1; }
     glfwMakeContextCurrent(window);
-    
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return -1;
 
     float vertices[] = {
@@ -114,8 +116,9 @@ int main() {
 
     unsigned int shaderProgram = createProgram("shader.vert", "shader.frag");
     int timeLoc=glGetUniformLocation(shaderProgram,"time");
+    int resLoc  = glGetUniformLocation(shaderProgram, "u_resolution");
     double time=0;
-    
+    int w=800, h=800;
     // Start terminal listener thread
     std::cout << "Type 'r' and hit Enter in this terminal to reload shaders." << std::endl;
     auto terminalFuture = std::async(std::launch::async, getTerminalInput);
@@ -123,6 +126,8 @@ int main() {
     while (!glfwWindowShouldClose(window)) {
       time+=0.01;      
       glUniform1f(timeLoc, time);
+      glfwGetFramebufferSize(window, &w, &h);
+        glUniform2f(resLoc, (float)w, (float)h);
         // Check if user entered something in terminal without blocking
         if (terminalFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             std::string input = terminalFuture.get();
@@ -133,14 +138,16 @@ int main() {
                     if (shaderProgram) glDeleteProgram(shaderProgram);
                     shaderProgram = newProg;
                     timeLoc=glGetUniformLocation(shaderProgram,"time");
-
-                    std::cout << "[SUCCESS] Shaders updated." << std::endl;
+                    resLoc  = glGetUniformLocation(shaderProgram, "u_resolution");
+                    glUniform1f(timeLoc, time);
+                    glUniform2f(resLoc, (float)w, (float)h);
+                    std::cout << "[SUCCESS] Shaders updated."<<(float)w<<','<<(float)h << std::endl;
                 }
             }
             // Restart the listener thread
             terminalFuture = std::async(std::launch::async, getTerminalInput);
         }
-
+        
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
