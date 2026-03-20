@@ -1,11 +1,7 @@
 #version 330 core
 out vec4 FragColor;
 in vec2 uv;
-uniform vec4 points[256];
-uniform float n;
-uniform float zoom;
-uniform float angle;
-uniform float frequency;
+uniform float time;
 
 const float screenWidth=800;
 const float PI =3.14157;
@@ -156,6 +152,19 @@ float iqnoise( in vec2 x, float u, float v ){
 	
     return va/wt;
 }
+vec3 rotateY(vec3 v, float theta) {
+    float rad = radians(theta);
+    float c = cos(rad);
+    float s = sin(rad);
+    
+    mat3 m = mat3(
+        vec3(c,  0.0, -s),
+        vec3(0.0, 1.0,  0.0),
+        vec3(s,  0.0,  c)  
+    );
+    
+    return m * v;
+}
 float stars(vec2 uv, float density) {
     vec2 cell = floor(uv * density);
     vec2 local = fract(uv * density);
@@ -179,6 +188,7 @@ return vec3(p,sqrt(r*r-p.x*p.x-p.y*p.y));
 }
 vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
   vec3 pos=transform2dTo3d(clip,planetScreenSpace);
+  pos=rotateY(pos,time);
   vec3 normal=normalize(pos);
   if(length(clip)>planetScreenSpace){
     
@@ -204,7 +214,7 @@ vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
     // light=dot(normal,lightDir)>0.98?0.5+dot(normal,lightDir):light;
 
     float waterNoise=cnoise2(pos*5,8);
-    outCol=vec3(58, 170, 240)/255*(0.95+0.05*waterNoise);
+    outCol=vec3(58, 170, 240)/255*(0.9+0.1*waterNoise);
     light+=max(1,dot(normal,lightDir))*0.05;
 
   }
@@ -229,18 +239,18 @@ void main()
   vec3 atmPos=transform2dTo3d(clip,atmostsphereRadius);
   vec3 atmNormal=normalize(atmPos);
   float k=max(0,1-smoothstep(0,atmostSphereThickness,abs(r - planetScreenSpace)))*0.4;
-  k*=min(1,0.2+dot(atmNormal,lightDir));//shadow on atmostsphere
+  float shadow=min(1,0.2+dot(atmNormal,lightDir));//shadow on atmostsphere
   vec3 atmostsphereTex=vec3(k,k,k);
   atmostsphereTex*=vec3(0, 213, 255)/255;//hue for atmostsphere
 
 //cloud
   vec3 cloudPos=transform2dTo3d(clip,planetScreenSpace+atmostSphereThickness*0.5);
 
-  float cloudVar=cnoise2(cloudPos*10+50.2,8);
-  vec4 cloudTex=vec4(vec3(float(cloudVar>0.5)),0.2)*100;
+  float cloudVar=cnoise2(cloudPos*10+time*vec3(0.042,0.63,0.348)/5,8);
+  vec4 cloudTex=vec4(vec3(float(cloudVar>0.2)),0.2);
 
 
 
-  FragColor=planetTex+vec4(atmostsphereTex,1)+cloudTex;
+  FragColor=planetTex+(vec4(atmostsphereTex,1)+cloudTex*0.8)*shadow;
 
 }

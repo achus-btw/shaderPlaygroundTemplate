@@ -6,7 +6,9 @@
 #include <string>
 #include <future>
 #include <chrono>
-
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 // Helper to read file to string
 std::string readFile(const std::string& path) {
     std::ifstream file(path);
@@ -111,12 +113,16 @@ int main() {
     glEnableVertexAttribArray(1);
 
     unsigned int shaderProgram = createProgram("shader.vert", "shader.frag");
+    int timeLoc=glGetUniformLocation(shaderProgram,"time");
+    double time=0;
     
     // Start terminal listener thread
     std::cout << "Type 'r' and hit Enter in this terminal to reload shaders." << std::endl;
     auto terminalFuture = std::async(std::launch::async, getTerminalInput);
 
     while (!glfwWindowShouldClose(window)) {
+      time+=0.01;      
+      glUniform1f(timeLoc, time);
         // Check if user entered something in terminal without blocking
         if (terminalFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             std::string input = terminalFuture.get();
@@ -126,6 +132,8 @@ int main() {
                 if (newProg) {
                     if (shaderProgram) glDeleteProgram(shaderProgram);
                     shaderProgram = newProg;
+                    timeLoc=glGetUniformLocation(shaderProgram,"time");
+
                     std::cout << "[SUCCESS] Shaders updated." << std::endl;
                 }
             }
