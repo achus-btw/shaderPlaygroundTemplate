@@ -172,15 +172,16 @@ float stars(vec2 uv, float density) {
     float d = length(local - starPos);
     return smoothstep(0.05, 0.0, d) * rand(cell + 13.1);
 }
-vec3 calcLandTerrain(float elevation, vec3 pos) {
+vec3 calcLandTerrain(float elevation, vec3 pos,float radius) {
+    float temprature=2*((radius-abs(pos.y))/radius-0.5);
     vec3 beach = vec3(207, 240, 168) / 255.0;
     vec3 green = vec3(50, 230, 98)   / 255.0 * (0.8 + cnoise2(pos * 15.0, 3) * 0.2);
     vec3 snow  = vec3(247, 252, 255) / 255.0;
 
-    float t1 = smoothstep(0.50, 0.60, elevation); // beach -> green
-    float t2 = smoothstep(0.85, 0.95, elevation); // green -> snow
+    float t1 = smoothstep(0.50, 0.60, elevation);
+    float t2 = smoothstep(0.85, 0.95, elevation-temprature*0.7); 
 
-    return mix(mix(beach, green, t1), snow, t2);
+    return mix(mix(beach, green, t1), snow, t2)*(0.5+0.5*elevation);
 }
 vec3 transform2dTo3d(vec2 p,float r){
 return vec3(p,sqrt(r*r-p.x*p.x-p.y*p.y));
@@ -207,13 +208,14 @@ vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
   float elevation=(cnoise2(pos*5,7)+1)*0.5;
   bool isLand=elevation>0.5;
   if(isLand){
-    outCol=calcLandTerrain(elevation,pos);
+    outCol=calcLandTerrain(elevation,pos,planetScreenSpace);
   }else{
     //iswater
     // light=dot(normal,lightDir)>0.98?0.5+dot(normal,lightDir):light;
 
     float waterNoise=cnoise2(pos*5,8);
     outCol=vec3(58, 170, 240)/255*(0.9+0.1*waterNoise);
+    outCol=mix(outCol,vec3(83, 168, 237)/255,smoothstep(0.2,0.,1-2*elevation));//shallow water
     light+=max(1,dot(normal,lightDir))*0.05;
 
   }
