@@ -172,16 +172,15 @@ float stars(vec2 uv, float density) {
     float d = length(local - starPos);
     return smoothstep(0.05, 0.0, d) * rand(cell + 13.1);
 }
-vec3 clacLandTerrain(float elevation,vec3 pos){
-  if(elevation<0.2){
-    //beach
-    return vec3(207, 240, 168)/255;
-  }else if(elevation<0.9){
-    //greens
-    return vec3(50, 230, 98)/255*(0.8+cnoise2(pos*15,3)*0.2);
-  }else{
-    return vec3(247, 252, 255)/255;
-  }
+vec3 calcLandTerrain(float elevation, vec3 pos) {
+    vec3 beach = vec3(207, 240, 168) / 255.0;
+    vec3 green = vec3(50, 230, 98)   / 255.0 * (0.8 + cnoise2(pos * 15.0, 3) * 0.2);
+    vec3 snow  = vec3(247, 252, 255) / 255.0;
+
+    float t1 = smoothstep(0.50, 0.60, elevation); // beach -> green
+    float t2 = smoothstep(0.85, 0.95, elevation); // green -> snow
+
+    return mix(mix(beach, green, t1), snow, t2);
 }
 vec3 transform2dTo3d(vec2 p,float r){
 return vec3(p,sqrt(r*r-p.x*p.x-p.y*p.y));
@@ -205,10 +204,10 @@ vec3 calculatePlanet(vec2 clip,float planetScreenSpace,vec3 lightDir){
   float light=min(1,0.2+dot(normal,lightDir));
 
   vec3 outCol;//base color blue
-  float elevation=cnoise2(pos*5,7);
-  bool isLand=elevation>0.1;
+  float elevation=(cnoise2(pos*5,7)+1)*0.5;
+  bool isLand=elevation>0.5;
   if(isLand){
-    outCol=clacLandTerrain(elevation,pos);
+    outCol=calcLandTerrain(elevation,pos);
   }else{
     //iswater
     // light=dot(normal,lightDir)>0.98?0.5+dot(normal,lightDir):light;
@@ -245,7 +244,8 @@ void main()
   atmostsphereTex*=vec3(0, 213, 255)/255;//hue for atmostsphere
 
 //cloud
-  vec3 cloudPos=transform2dTo3d(clip,planetScreenSpace+atmostSphereThickness*0.5);
+  vec3 cloudPos=transform2dTo3d(clip,planetScreenSpace+atmostSphereThickness*0.2);
+  cloudPos=rotateY(cloudPos,time*-2.434);
 
   float cloudVar=cnoise2(cloudPos*10+time*vec3(0.042,0.63,0.348)/5,8);
   vec4 cloudTex=vec4(vec3(smoothstep(0,0.9,cloudVar)),0.2);
@@ -254,9 +254,9 @@ void main()
   vec3 iceCap=vec3(smoothstep(0.1,0.9,abs(clip.y)))*float(r<planetScreenSpace);
   FragColor=planetTex+
             (
-             vec4(atmostsphereTex,1)+
-             cloudTex*0.9+
-             vec4(iceCap,1)
+             vec4(atmostsphereTex,1)
+             +cloudTex*0.9
+             +vec4(iceCap,1)
              )*shadow;
 
 }
